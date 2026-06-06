@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Controle IoT - Sonoff ESP32</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); text-align: center; width: 90%; max-width: 400px; }
+        input[type="password"] { width: 100%; padding: 12px; margin: 15px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; text-align: center; }
+        button { width: 48%; padding: 12px; font-size: 16px; border: none; border-radius: 4px; cursor: pointer; margin: 5px 1%; color: white; font-weight: bold; }
+        .btn-on { background-color: #28a745; }
+        .btn-off { background-color: #dc3545; }
+        .status-box { margin-top: 20px; padding: 10px; border-radius: 4px; background-color: #e9ecef; font-size: 14px; color: #495057; min-height: 40px; display: flex; align-items: center; justify-content: center; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Controle Sonoff ESP32</h2>
+    
+    <label for="senha">Senha de Acesso:</label>
+    <input type="password" id="senha" placeholder="Digite a senha numérica" maxlength="6">
+    
+    <div>
+        <button class="btn-on" onclick="enviarComando('ON')">LIGAR</button>
+        <button class="btn-off" onclick="enviarComando('OFF')">DESLIGAR</button>
+    </div>
+    
+    <div class="status-box" id="status-display">
+        Status: Conectando ao servidor...
+    </div>
+</div>
+
+<script>
+    // Configurações do Broker HiveMQ via WebSockets
+    const brokerHost = "broker.hivemq.com";
+    const brokerPort = 8884; // Porta WebSocket segura (WSS) com TLS
+    const topicCmd = "savyo/sonoff/cmd";
+    const topicStatus = "savyo/sonoff/status";
+    
+    // Identificador único para a sessão do navegador
+    const clientId = "web_client_" + Math.random().toString(16).substr(2, 8);
+    
+    const client = new Paho.MQTT.Client(brokerHost, Number(brokerPort), clientId);
+    
+    client.onConnectionLost = (responseObject) => {
+        document.getElementById("status-display").innerText = "Conexão perdida. Tentando reconectar...";
+        setTimeout(conectarBroker, 3000);
+    };
+    
+    client.onMessageArrived = (message) => {
+        if (message.destinationName === topicStatus) {
+            document.getElementById("status-display").innerText = message.payloadString;
+        }
+    };
+    
+    function conectarBroker() {
+    client.connect({
+        useSSL: true, // Força o uso de criptografia TLS para alinhar com o HTTPS do GitHub
+        onSuccess: () => {
+            document.getElementById("status-display").innerText = "Conectado. Aguardando comandos.";
+            client.subscribe(topicStatus);
+        },
+        onFailure: () => {
+            console.log(error);
+            document.getElementById("status-display").innerText = "Falha na conexão. Reconectando...";
+            setTimeout(conectarBroker, 5000);
+        }
+    });
+}
+    
+    function enviarComando(acao) {
+        const senhaInput = document.getElementById("senha").value;
+        if (!senhaInput) {
+            alert("Por favor, insira a senha antes de enviar o comando.");
+            return;
+        }
+        
+        // Montagem do payload seguro: "SENHA:COMANDO"
+        const payloadFinal = senhaInput + ":" + acao;
+        const message = new Paho.MQTT.Message(payloadFinal);
+        message.destinationName = topicCmd;
+        client.send(message);
+    }
+    
+    // Inicializa a conexão ao carregar a página
+    conectarBroker();
+</script>
+
+</body>
+</html>
