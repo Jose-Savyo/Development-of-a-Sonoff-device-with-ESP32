@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Controle IoT - Multi-Canais ESP32</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .container { background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); text-align: center; width: 100%; max-width: 500px; }
+        input[type="password"] { width: 100%; padding: 12px; margin: 15px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; text-align: center; }
+        
+        /* Estrutura da Grade Dinâmica */
+        .grid-canais { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 15px; 
+            margin: 20px 0; 
+        }
+        
+        /* Cartão de cada canal individual */
+        .card-canal { background-color: #f8f9fa; border: 1px solid #e9ecef; padding: 12px; border-radius: 6px; text-align: center; }
+        .card-canal h4 { margin: 0 0 10px 0; color: #333; }
+        
+        /* Botões internos do canal */
+        .btn-group { display: flex; justify-content: space-between; gap: 8px; }
+        button { width: 100%; padding: 10px; font-size: 14px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; transition: background 0.2s; }
+        .btn-on { background-color: #28a745; }
+        .btn-on:hover { background-color: #218838; }
+        .btn-off { background-color: #dc3545; }
+        .btn-off:hover { background-color: #c82333; }
+        
+        .status-box { margin-top: 20px; padding: 12px; border-radius: 4px; background-color: #e9ecef; font-size: 14px; color: #495057; min-height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Controle Sonoff ESP32 Multi-Canais</h2>
+    
+    <label for="senha">Senha de Acesso:</label>
+    <input type="password" id="senha" placeholder="Digite a senha numérica" maxlength="6">
+    
+    <div class="grid-canais" id="grid-container">
+        </div>
+    
+    <div class="status-box" id="status-display">
+        Status: Conectando ao servidor...
+    </div>
+</div>
+
+<script>
+    // Configurações do Broker HiveMQ via WebSockets Seguro (WSS)
+    const brokerHost = "broker.hivemq.com";
+    const brokerPort = 8884; 
+    const topicCmd = "savyo/sonoff/cmd";
+    const topicStatus = "savyo/sonoff/status";
+    
+    const clientId = "web_client_" + Math.random().toString(16).substr(2, 8);
+    const client = new Paho.MQTT.Client(brokerHost, Number(brokerPort), clientId);
+    
+    client.onConnectionLost = (responseObject) => {
+        document.getElementById("status-display").innerText = "Conexão perdida. Tentando reconectar...";
+        setTimeout(conectarBroker, 3000);
+    };
+    
+    client.onMessageArrived = (message) => {
+        if (message.destinationName === topicStatus) {
+            document.getElementById("status-display").innerText = message.payloadString;
+        }
+    };
+    
+    function conectarBroker() {
+        client.connect({
+            useSSL: true, // Alinhado com a segurança HTTPS do GitHub Pages
+            onSuccess: () => {
+                document.getElementById("status-display").innerText = "Conectado. Pronto para operar.";
+                client.subscribe(topicStatus);
+            },
+            onFailure: (error) => {
+                console.error(error);
+                document.getElementById("status-display").innerText = "Falha na conexão. Retentando...";
+                setTimeout(conectarBroker, 5000);
+            }
+        });
+    }
+    
+    // Função para gerar dinamicamente os elementos HTML dos 8 canais
+    function gerarGradeCanais() {
+        const container = document.getElementById("grid-container");
+        container.innerHTML = ""; // Limpa o container
+        
+        for (let i = 0; i < 8; i++) {
+            const card = document.createElement("div");
+            card.className = "card-canal";
+            card.innerHTML = `
+                <h4>Canal ${i + 1}</h4>
+                <div class="btn-group">
+                    <button class="btn-on" onclick="enviarComando(${i}, 'ON')">LIGAR</button>
+                    <button class="btn-off" onclick="enviarComando(${i}, 'OFF')">DESLIGAR</button>
+                </div>
+            `;
+            container.appendChild(card);
+        }
+    }
+    
+    // Função de envio parametrizada: "SENHA:INDEX:ESTADO"
+    function enviarComando(ledIndex, acao) {
+        const senhaInput = document.getElementById("senha").value;
+        if (!senhaInput) {
+            alert("Por favor, insira a senha antes de enviar o comando.");
+            return;
+        }
+        
+        const payloadFinal = senhaInput + ":" + ledIndex + ":" + acao;
+        const message = new Paho.MQTT.Message(payloadFinal);
+        message.destinationName = topicCmd;
+        client.send(message);
+    }
+    
+    // Inicialização do Sistema
+    gerarGradeCanais();
+    conectarBroker();
+</script>
+
+</body>
+</html>
