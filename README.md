@@ -65,8 +65,4 @@ O próximo marco miliário (Milestone) do projeto focará na transformação do 
 * **Interface Dinâmica de Agendamento:** Inclusão de campos do tipo `<input type="time">` em cada um dos 8 cartões da página web, permitindo que o usuário envie o comando de temporização diretamente da tela do celular.
 * **Rotina de Checagem no Loop Principal:** Criação de uma função não-bloqueante baseada na função `millis()` para comparar constantemente o horário atual obtido via NTP com os horários agendados na memória do ESP32, garantindo precisão milimétrica sem congelar o tráfego de dados MQTT.
 
-```
-
-Você prefere que eu faça mais algum ajuste técnico nas especificações dos tópicos ou essa estrutura atende completamente ao que você precisa subir no commit de hoje?
-
-```
+Wokwi link: https://wokwi.com/projects/466076448494816257
